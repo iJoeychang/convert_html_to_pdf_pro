@@ -1,0 +1,455 @@
+<html>
+
+<head>
+    <title>Convert html to PDF</title>
+    
+    <!-- jQuery library -->
+    <script src="js/jquery.min.js"></script>
+
+    <!-- jsPDF library -->
+    <!-- <script src="js/jsPDF/dist/jspdf.min.js"></script> -->
+    <script src="js/jsPDF/dist/jspdf.debug.js"></script>
+    <script src="js/jsPDF/html2canvas.js"></script>
+
+    <script src="html2pdf/dist/html2pdf.bundle.min.js"></script>
+
+    <script>
+    	var pdf,page_section,HTML_Width,HTML_Height,top_left_margin,PDF_Width,PDF_Height,canvas_image_width,canvas_image_height;
+    	
+    	
+    	
+    	 function calculatePDF_height_width(selector,index){
+    		page_section = $(selector).eq(index);
+    		HTML_Width = page_section.width();
+    		HTML_Height = page_section.height();
+    		top_left_margin = 15;
+    		PDF_Width = HTML_Width + (top_left_margin * 2);
+    		PDF_Height = (PDF_Width * 1.2) + (top_left_margin * 2);
+    		canvas_image_width = HTML_Width;
+    		canvas_image_height = HTML_Height;
+    	 }
+
+        
+    	
+        function generatePDF() {
+
+            var target = document.getElementById("content");//要转化页面内容的id
+            html2canvas(target, {
+                background: "#FFFFFF",//如果指定的div没有设置背景色会默认成黑色,这里是个坑
+                onrendered:function(canvas) {
+
+                    //未生成pdf的html页面高度
+                    var leftHeight = canvas.height;
+
+                    var a4Width = 595.28
+                    var a4Height = 841.89
+                    //一页pdf显示html页面生成的canvas高度;
+                    var a4HeightRef = Math.floor(canvas.width / a4Width * a4Height);
+
+                    //pdf页面偏移
+                    var position = 0;
+
+                    var pageData = canvas.toDataURL('image/jpeg', 1.0);
+
+                    var pdf = new jsPDF('x', 'pt', 'a4');
+                    var index = 1,
+                        canvas1 = document.createElement('canvas'),
+                        height;
+                    pdf.setDisplayMode('fullwidth', 'continuous', 'FullScreen');
+
+                    var pdfName='导出PDF';
+                    $('.head-content').append($(
+                        '<div class="pdfTip">' +
+                        '   <div>正在生成第<span class="pdfProgress">1</span>页，共<span class="pdfTotal"></span>页...' +
+                        '</div>'));
+                    function createImpl(canvas) {
+                        if (leftHeight > 0) {
+                            index++;
+
+                            var checkCount = 0;
+                            if (leftHeight > a4HeightRef) {
+                                var i = position + a4HeightRef;
+                                for (i = position + a4HeightRef; i >= position; i--) {
+                                    var isWrite = true
+                                    for (var j = 0; j < canvas.width; j++) {
+                                        var c = canvas.getContext('2d').getImageData(j, i, 1, 1).data
+
+                                        if (c[0] != 0xff || c[1] != 0xff || c[2] != 0xff) {
+                                            isWrite = false
+                                            break
+                                        }
+                                    }
+                                    if (isWrite) {
+                                        checkCount++
+                                        if (checkCount >= 10) {
+                                            break
+                                        }
+                                    } else {
+                                        checkCount = 0
+                                    }
+                                }
+                                height = Math.round(i - position) || Math.min(leftHeight, a4HeightRef);
+                                if(height<=0){
+                                    height = a4HeightRef;
+                                }
+                            } else {
+                                height = leftHeight;
+                            }
+
+                            canvas1.width = canvas.width;
+                            canvas1.height = height;
+
+                            // console.log(index, 'height:', height, 'pos', position);
+
+                            var ctx = canvas1.getContext('2d');
+                            ctx.drawImage(canvas, 0, position, canvas.width, height, 0, 0, canvas.width, height);
+
+                            var pageHeight = Math.round(a4Width / canvas.width * height);
+                           // pdf.setPageSize(null, pageHeight)
+                            if(position != 0){
+                                pdf.addPage();
+                            }
+                            pdf.addImage(canvas1.toDataURL('image/jpeg', 1.0), 'JPEG', 0, 0, a4Width, a4Width / canvas1.width * height);
+                            leftHeight -= height;
+                            position += height;
+                            $('.pdfProgress').text(index + 1);
+                            $('.pdfTotal').text(index + Math.ceil(leftHeight / a4HeightRef));
+                            if (leftHeight > 0) {
+                                setTimeout(createImpl, 500, canvas);
+                            } else {
+                                pdf.save(pdfName + '.pdf');
+                                $('.pdfTip').remove();
+                            }
+                        }
+                    }
+
+                    // 当内容未超过pdf一页显示的范围，无需分页
+                    if (leftHeight < a4HeightRef) {
+                        pdf.addImage(pageData, 'JPEG', 0, 0, a4Width, a4Width / canvas.width * leftHeight);
+                        pdf.save(pdfName + '.pdf')
+                    } else {
+                        try {
+                            pdf.deletePage(0);
+                            $('.pdfTip').show();
+                            $('.pdfTotal').text(index + Math.ceil(leftHeight / a4HeightRef));
+                            setTimeout(createImpl, 500, canvas);
+                        } catch (err) {
+                            console.log(err);
+                        }
+                    }
+                }
+            })
+        }
+
+
+        // HTML2PDF 方式导出
+        function generatePDF2() {
+            var element = document.getElementById('content');
+            html2pdf(element);
+        }
+    
+    </script>
+    <style>
+    .print-wrap {
+        width: 500px;
+    }
+    </style>
+</head>
+
+<body>
+
+    <button onclick="generatePDF()">导出 HTML 到 PDF</button>
+
+    <button onclick="generatePDF2()"> HTML2PDF 到 PDF</button>
+
+    <div id="content" class="content">
+        <h1>What is Lorem Ipsum?</h1>
+        <p>Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+        </p>
+
+        <p>饮马长城窟行
+            青青河畔草，绵绵思远道。
+            远道不可思，宿昔梦见之。
+            梦见在我傍，忽觉在他乡。
+            他乡各异县，辗转不相见。
+            枯桑知天风，海水知天寒。
+            入门各自媚，谁肯相为言。
+            客从远方来，遗我双鲤鱼。
+            呼儿烹鲤鱼，中有尺素书。
+            长跪读素书，书中竟何如。
+            上言加餐食，下言长相忆。
+        </p>
+           
+        <p>
+           皇天之不纯命兮，何百姓之震愆？
+        　　民离散而相失兮，方仲春而东迁。
+        　　去故乡而就远兮，遵江夏以流亡。
+        　　出国门而轸怀兮，甲之朝吾以行。
+        　　发郢都而去闾兮，怊荒忽其焉极？
+        　　楫齐扬以容与兮，哀见君而不再得。
+        　　望长楸而太息兮，涕淫淫其若霰。
+        　　过夏首而西浮兮，顾龙门而不见。
+        　　心婵媛而伤怀兮，眇不知其所跖。
+        　　顺风波以从流兮，焉洋洋而为客。
+        　　凌阳侯之汜滥兮，忽翱翔之焉薄。
+        　　心絓结而不解兮，思蹇产而不释。
+        　　将运舟而下浮兮，上洞庭而下江。
+        　　去终古之所居兮，今逍遥而来东。
+        　　羌灵魂之欲归兮，何须臾而忘反。
+        　　背夏浦而西思兮，哀故都之日远。
+        　　登大坟以远望兮，聊以舒吾忧心。
+        　　哀州土之平乐兮，悲江介之遗风。
+        　　当陵阳之焉至兮，淼南渡之焉如？
+        　　曾不知夏之为丘兮，孰两东门之可芜？
+        　　心不怡之长久兮，忧与愁其相接。
+        　　惟郢路之辽远兮，江与夏之不可涉。
+        　　忽若不信兮，至今九年而不复。
+        　　惨郁郁而不通兮，蹇侘傺而含戚。
+        　　外承欢之[氵勺]约兮，谌荏弱而难持。
+        　　忠湛湛而愿进兮，妒被离而鄣之。
+        　　尧舜之抗行兮，了杳杳而薄天。
+        　　众谗人之嫉妒兮，被以不慈之伪名。
+        　　憎愠惀之修美兮，好夫人之慷慨。
+        　　众踥蹀而日进兮，美超远而逾迈。
+        　　乱曰：
+        　　曼余目以流观兮，冀一反之何时？
+        　　鸟飞反故乡兮，狐死必首丘。
+        　　信非吾罪而弃逐兮，何日夜而忘之？
+        </p>
+
+        <p> 
+           浮过夏水之头而西行兮，
+
+        　　回首不见故都之门墙。
+
+        　　怀伊人难诉我心之哀伤兮，
+
+        　　路漫漫不知归于何方。
+
+        　　借风波送我于江水之间兮，
+
+        　　水茫茫天地一流殇   
+        </p>
+       
+        <p>    
+                《苦昼短》
+                        李贺
+            飞光飞光，劝尔一杯酒。
+            吾不识青天高，黄地厚。
+            唯见月寒日暖，来煎人寿。
+            食熊则肥，食蛙则瘦。
+            神君何在？太一安有？
+            天东有若木，下置衔烛龙。
+            吾将斩龙足，嚼龙肉，
+            使之朝不得回，夜不得伏。
+            自然老者不死，少者不哭。
+            何为服黄金、吞白玉？
+            谁似任公子，云中骑碧驴
+            刘彻茂陵多滯骨，贏政梓棺费鲍鱼。
+        </p>
+
+        <p> 
+            《临江仙·梦后楼台高锁》
+                           晏几道
+            梦后楼台高锁，酒醒帘幕低垂。
+            去年春恨却来时，
+            落花人独立，微雨燕双飞。
+            记得小蘋初见，两重心字罗衣，
+            琵琶弦上说相思。
+            当时明月在，曾照彩云归。   
+        </p>
+
+        <p>    
+            雨后岚山
+                          周恩来
+
+            一
+            山中雨过云愈暗
+            渐近黄昏
+            万绿中拥出一丛樱
+            淡红娇嫩，惹得人心醉
+            自然美，不假人工
+            不受人拘束
+            想起那些宗教、礼法、旧文艺…
+            粉饰的东西
+            还在那讲什么信仰，情感
+            美观……的制人学说
+            登高远看，青山渺渺
+            被遮掩的白云如带
+            十数电光
+            射出那渺茫黑暗的城市
+            此刻岛民心理，仿佛从情景中呼出
+            元老、军阀、党阀、资本家…
+            从此以后“将何所恃”？
+
+            二
+            雨中二次游岚山，
+            两岸苍松，夹着几株樱。
+            到尽处突见一山高，
+            流出泉水绿如许，绕石照人。
+            潇潇雨，雾濛浓；
+            一线阳光穿云出，愈见姣妍。
+            人间的万象真理，愈求愈模糊；
+            ——模糊中偶然见着一点光明，
+            真愈觉姣妍。
+
+            游日本京都圆山公园
+
+            满园樱花灿烂，灯光四照，人声嘈杂。
+            小池边杨柳依依，孤单单站着一个女子。
+            樱花杨柳，那个可爱？
+            冷清清不言不语，可没有人来问他。
+
+            四次游圆山公园 
+
+            四次来游，满山满谷的“落英缤纷”；
+            树上只剩得青枝与绿叶，
+            更何处寻那“淡红娇嫩”的“樱”！
+            灯火熄，游人渐渐稀，我九天西京炎凉饱看；
+            想人世成败繁枯，都是客观的现象，
+            何曾开芳草春花，自然的美，无碍着的心。
+        </p>
+
+        <p> 四块玉·酒旋沽
+                 【元•马致远】
+            酒旋沽，
+            鱼新买，
+            满眼云山画图开。
+            清风明月还诗债。
+            本是个懒散人，
+            又无甚经济才，
+            归去来。  
+        </p>
+
+        <p> 
+            牧童诗
+              【宋•黄庭坚】
+            骑牛远远过前村，
+            短笛横吹隔陇闻。
+            多少长安名利客，
+            机关用尽不如君。   
+        </p>
+
+        <p>   
+        五月斯螽（zhōng）动股，六月莎(suō)鸡振羽。七月在野，八月在宇，九月在户，十月蟋蟀入我床下。穹(qióng)窒(zhì)熏鼠，塞向墐（jìn）户。嗟我妇子，曰为改岁。入此室处。
+        白话释义：
+        五月里蚱蜢抖动双腿，六月里来纺织娘震动翅膀。七月里来蟋蟀在野外，八月里来蟋蟀进入屋檐下，九月里蟋蟀在窗户内，十月里来蟋蟀钻进我床下。此时堵塞洞穴熏老鼠，用泥涂抹粉饰我们的家室。哎呀我的妻子和儿女，说是旧年过去新年将要到，要住干净温馨的家室。 
+        </p>
+
+        <p>    
+            春游浩荡，是年年寒食，梨花时节。白锦无纹香烂漫，玉树琼苞堆雪。静夜沉沉，浮光霭霭，冷浸溶溶月。人间天上，烂银霞照通彻……
+        </p>
+
+        <p>  
+            浪淘沙·一叶忽惊秋
+                   【宋•贺铸】
+            一叶忽惊秋。
+            分付东流。
+            殷勤为过白苹洲。
+            洲上小楼帘半卷，
+            应认归舟。
+
+            回首恋朋游。
+            迹去心留。
+            歌尘萧散梦云收。
+            惟有尊前曾见月，
+            相伴人愁。  
+        </p>
+
+        <p>    
+            人生百年 如梦如幻
+            有生有死 壮士何憾
+            保我国土 扬我国威
+            生有何欢 死有何憾
+            北地胡风 南国炊烟
+            思我妻儿 望我家园
+            关山路阻 道长且远
+            人生百年 如梦如幻
+            有生有死 壮士何憾
+            保我国土 扬我国威
+            生有何欢 死有何憾
+            北地胡风 南国炊烟
+            思我妻儿 望我家园
+            关山路阻 道长且远
+        </p>
+
+        <p>  
+        《文选．卜商〈诗序〉》：“情动于中而形之于言。言之不足，故嗟叹之；嗟叹之不足，故永歌之；永歌之不足，不知手之舞之，足之蹈之也。”  
+        </p>
+
+        <p>  
+            题旅店
+              【清•王九龄】
+            晓觉茅檐片月低，
+            依稀乡国梦中迷。
+            世间何物催人老，
+            半是鸡声半马蹄。  
+        </p>
+
+        <p>
+            临江仙·身外闲愁空满
+                  【宋•晏几道】
+            身外闲愁空满，
+            眼中欢事常稀。
+            明年应赋送君诗。
+            细从今夜数，
+            相会几多时？
+
+            浅酒欲邀谁劝，
+            深情惟有君知。
+            东溪春近好同归。
+            柳垂江上影，
+            梅谢雪中枝。    
+        </p>
+
+        <p>
+            和袭美春夕酒醒
+             【唐•陆龟蒙】
+            几年无事傍江湖，
+            醉倒黄公旧酒垆。
+            觉后不知明月上，
+            满身花影倩人扶。    
+        </p>
+
+        <p>   
+                  西湖 
+
+            看明湖一碧，六桥锁烟水。
+            塔影参差，有画船自来去。
+            垂杨柳两行，绿染长堤。
+            飏晴风，又笛韵悠扬起。
+
+            看青山四周，高峰南北齐。
+            山色自空蒙，有竹木媚幽姿。
+            探古洞烟霞，翠扑须眉。
+            沾暮雨，又钟声林外起。
+
+            大好湖山如此，独擅天然美。
+            明湖碧，又青山绿作堆。
+            漾晴光潋滟，带雨色幽奇。
+            靓妆比西子，尽浓淡总相宜。 
+        </p>
+
+        <p>    
+            【水龙吟 登建康赏心亭】
+            楚天千里清秋，水随天去秋无际。遥岑远目，献愁供恨，玉簪螺髻。落日楼头，断鸿声里，江南游子。把吴钩看了，栏杆拍遍，无人会、登临意。
+            休说鲈鱼堪脍，尽西风，季鹰归未？求田问舍，怕应羞见，刘郎才气。可惜流年，忧愁风雨，树犹如此。倩何人唤取，红巾翠袖，揾英雄泪。
+        </p>
+
+        你好啊 哈哈哈
+
+         <p>11111 Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+        </p>
+
+         <p>22222 Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+        </p>
+
+
+         <p>33333 Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+        </p>
+    </div>
+    
+
+</body>
+
+</html>
